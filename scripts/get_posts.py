@@ -23,6 +23,14 @@ QUERY_PREFIX = f"{PUSHSHIFT_URL}?{PARAMS}"
 @click.option("--output", help="Output file")
 def main(num_posts, score_threshold, post_limit, output, log):
     logger = set_up_logging(log)
+    param_log = " ".join([
+        f"num_posts: {num_posts}",
+        f"score_threshold: {score_threshold}",
+        f"post_limit: {post_limit}",
+        f"log_file: {log}",
+        f"output: {output}\n"
+    ])
+    logger.info(param_log)
     with open("keys.txt", "r") as f:
         client_id, client_secret = f.read().splitlines()
 
@@ -36,11 +44,14 @@ def main(num_posts, score_threshold, post_limit, output, log):
     current_time = None
     while len(posts) < num_posts:
         data = get_posts(current_time, post_limit)
-        current_time = data[-1]["created_utc"]
+        current_time = data[-1]["created_utc"]  # get posts older than oldest
+
+        # For some reason pushshift doesn't properly retrieve submission
+        # scores so I'm going to get those using PRAW.
         update_post_data(reddit, data)
         posts.extend([x for x in data if x["score"] >= score_threshold])
         logger.info(f"Total posts retrieved: {len(posts)}")
-        time.sleep(1)
+        time.sleep(1)  # sleep to respect pushshift rate limit
 
     df = pd.DataFrame.from_records(posts)
     columns_to_keep = ["score", "author", "created_utc", "id", "permalink",
@@ -65,7 +76,7 @@ def update_post_data(reddit, posts):
 
 
 def get_posts(before=None, limit=25):
-    """Get list of posts with pushshift."""
+    """Get chronological list of posts with pushshift."""
     if before is None:
         before = int(time.time())
     query = f"{QUERY_PREFIX}&before={before}&limit={limit}"
@@ -76,14 +87,15 @@ def get_posts(before=None, limit=25):
 
 
 def set_up_logging(log_location):
+    """Set up logging to file."""
     logger = logging.getLogger("get_posts")
     logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(log_location)
+    fh = logging.FileHandler(log_location, mode="w")
     fh.setLevel(logging.INFO)
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "%(asctime)s - %(message)s"
     )
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
