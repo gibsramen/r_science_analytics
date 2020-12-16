@@ -1,10 +1,11 @@
-import logging
 import requests
 import time
 
 import click
 import praw
 import pandas as pd
+
+from src.util import set_up_logging
 
 PUSHSHIFT_URL = "https://api.pushshift.io/reddit/submission/search/"
 PARAMS = "&".join([
@@ -19,7 +20,9 @@ QUERY_PREFIX = f"{PUSHSHIFT_URL}?{PARAMS}"
 @click.option("--num-posts", default=10, help="Number of posts to retrieve")
 @click.option("--score-threshold", default=50, help="Minimum score")
 @click.option("--post-limit", default=25, help="Max posts per API call")
-@click.option("--log", default="scripts/get_posts.log", help="Log location")
+@click.option("--log",
+              default="scripts/log/get_posts.log",
+              help="Log location")
 @click.option("--output", help="Output file")
 def main(num_posts, score_threshold, post_limit, output, log):
     logger = set_up_logging(log)
@@ -84,24 +87,6 @@ def get_posts(before=None, limit=25):
     assert result.status_code == 200
     data = result.json()["data"]
     return data
-
-
-def set_up_logging(log_location):
-    """Set up logging to file."""
-    logger = logging.getLogger("get_posts")
-    logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(log_location, mode="w")
-    fh.setLevel(logging.INFO)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(message)s"
-    )
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-    return logger
 
 
 if __name__ == "__main__":
